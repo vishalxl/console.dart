@@ -1,5 +1,43 @@
 part of console;
 
+
+/// A [ProcessSignal] that is only available on Posix platforms.
+///
+/// Listening to a [_PosixProcessSignal] is a no-op on Windows.
+class _PosixProcessSignal extends ProcessSignalNew {
+
+  const _PosixProcessSignal._(ProcessSignal wrappedSignal) : super(wrappedSignal);
+
+  @override
+  Stream<ProcessSignalNew> watch() {
+    if (Platform.isWindows)
+      return const Stream<ProcessSignalNew>.empty();
+    return super.watch();
+  }
+}
+
+class ProcessSignalNew implements ProcessSignal {
+  //@visibleForTesting
+  const ProcessSignalNew(this._delegate);
+
+  static const ProcessSignalNew SIGWINCH = _PosixProcessSignal._(ProcessSignal.sigwinch);
+  static const ProcessSignalNew SIGTERM = _PosixProcessSignal._(ProcessSignal.sigterm);
+  static const ProcessSignalNew SIGUSR1 = _PosixProcessSignal._(ProcessSignal.sigusr1);
+  static const ProcessSignalNew SIGUSR2 = _PosixProcessSignal._(ProcessSignal.sigusr2);
+  static const ProcessSignalNew SIGINT =  ProcessSignalNew(ProcessSignal.sigint);
+  static const ProcessSignalNew SIGKILL =  ProcessSignalNew(ProcessSignal.sigkill);
+
+  final ProcessSignal _delegate;
+
+  @override
+  Stream<ProcessSignalNew> watch() {
+    return _delegate.watch().map<ProcessSignalNew>((ProcessSignal signal) => this);
+  }
+
+  @override
+  String toString() => _delegate.toString();
+}
+
 /// The root of the console API
 class Console {
   static const String ANSI_CODE = '\x1b';
@@ -23,7 +61,7 @@ class Console {
     initialized = true;
   }
 
-  static Stream get onResize => ProcessSignal.sigwinch.watch();
+  static Stream get onResize => ProcessSignalNew.SIGWINCH.watch();
 
   /// Moves the Cursor Forward the specified amount of [times].
   static void moveCursorForward([int times = 1]) => writeANSI('${times}C');
